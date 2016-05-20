@@ -15,6 +15,12 @@
   <link href="{{ STATIC_URL }}css/archival_storage.css" rel="stylesheet" type="text/css" />
 {% endblock %}
 
+{% block extra_js %}
+  <script>
+    $(document).ready(function() { localizeTimestampElements(); });
+  </script>
+{% endblock %}
+
 {% block content %}
 
   <ul class="breadcrumb">
@@ -97,7 +103,7 @@
           <td>{{ term_usage.status }}</td>
           <td><a href="{% url 'components.archival_storage.views.aip_pointer_file_download' term_usage.uuid %}">Pointer File</a></td>
           <td>
-            <a href="{% url 'components.archival_storage.views.aip_delete' term_usage.uuid %}"><img src="{{ STATIC_URL }}images/delete.png"/></a>
+            <a href="{% url 'components.archival_storage.views.delete_aip' term_usage.uuid %}"><img src="{{ STATIC_URL }}images/delete.png"/></a>
             <a href="{% url 'reingest_aip' term_usage.uuid %}" class='btn small'>Re-ingest</a>
           </td>
         </tr>
@@ -146,11 +152,5 @@
   {% else %}
     <div class='search-summary'>No results, please try another search.</div>
   {% endif %}
-
-  <script>
-  $(document).ready(function() {
-    localizeTimestampElements();
-  });
-  </script>
 
 {% endblock %}

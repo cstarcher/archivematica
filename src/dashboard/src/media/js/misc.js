@@ -151,7 +151,7 @@ function datetimeToLocal(timestamp) {
   'use strict';
   var date = new Date(timestamp+'Z');
 
-  return date.toLocaleFormat();
+  return date.toLocaleDateString();
 }
 
 function localizeTimestampElements() {

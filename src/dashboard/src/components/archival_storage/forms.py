@@ -16,16 +16,27 @@
 # along with Archivematica.  If not, see <http://www.gnu.org/licenses/>.
 
 from django import forms
+from django.utils.translation import ugettext_lazy
 
 
 class CreateAICForm(forms.Form):
     results = forms.CharField(label=None, required=True, widget=forms.widgets.HiddenInput())
 
+
+class UploadMetadataOnlyAtoMForm(forms.Form):
+    slug = forms.CharField(label=ugettext_lazy('Insert slug'), required=True)
+    slug.widget.attrs['class'] = 'span8'
+
+
 class ReingestAIPForm(forms.Form):
     METADATA_ONLY = 'metadata'
     OBJECTS = 'objects'
     REINGEST_CHOICES = (
-        (METADATA_ONLY, 'Re-ingest metadata only'),
-        (OBJECTS, 'Re-ingest metadata and objects')
+        (METADATA_ONLY, ugettext_lazy('Re-ingest metadata only')),
+        (OBJECTS, ugettext_lazy('Re-ingest metadata and objects'))
     )
-    reingest_type = forms.ChoiceField(choices=REINGEST_CHOICES,  widget=forms.RadioSelect, required=True)
+    reingest_type = forms.ChoiceField(choices=REINGEST_CHOICES, widget=forms.RadioSelect, required=True)
+
+
+class DeleteAIPForm(forms.Form):
+    pass

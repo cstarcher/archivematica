@@ -17,13 +17,13 @@
 
 import ast
 import copy
+import datetime
 import httplib
 import json
 import logging
 import os
 import requests
 import slumber
-import sys
 import uuid
 
 from django.contrib import messages
@@ -32,7 +32,8 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect, Http404
 from django.shortcuts import render, redirect
 from django.template import RequestContext
-from elasticsearch import Elasticsearch, ElasticsearchException
+from django.views.decorators.http import require_http_methods
+from elasticsearch import ElasticsearchException
 from lazy_paged_sequence import LazyPagedSequence
 
 from main import models
@@ -177,7 +178,7 @@ def search(request):
 
     page_data = helpers.pager(results, items_per_page, current_page_number)
 
-    return render(request, 'archival_storage/archival_storage_search.html',
+    return render(request, 'archival_storage/search.html',
         {
             'file_mode': file_mode,
             'show_aics': show_aics,
@@ -230,7 +231,7 @@ def search_augment_file_results(es_client, raw_results):
         # try to find AIP details in database
         try:
             # get AIP data from ElasticSearch
-            aip = elasticSearchFunctions.get_aip_data(es_client, clone['AIPUUID'])
+            aip = elasticSearchFunctions.get_aip_data(es_client, clone['AIPUUID'], fields='uuid,name,filePath,size,origin,created')
 
             # augment result data
             clone['sipname'] = aip['fields']['name'][0]
@@ -306,53 +307,12 @@ def create_aic(request, *args, **kwargs):
         logger.error("Error creating AIC: Form not valid: {}".format(aic_form))
         return redirect('archival_storage_index')
 
-def delete_context(request, uuid):
-    prompt = 'Delete AIP?'
-    cancel_url = reverse("components.archival_storage.views.overview")
-    return RequestContext(request, {'action': 'Delete', 'prompt': prompt, 'cancel_url': cancel_url})
 
-@decorators.confirm_required('delete_request.html', delete_context)
-def aip_delete(request, uuid):
-    try:
-        reason_for_deletion = request.POST.get('reason_for_deletion', '')
+def delete_aip(request, uuid):
+    raise Http404
 
-        response = storage_service.request_file_deletion(
-           uuid,
-           request.user.id,
-           request.user.email,
-           reason_for_deletion
-        )
-
-        messages.info(request, response['message'])
-
-        es_client = elasticSearchFunctions.get_client()
-        elasticSearchFunctions.mark_aip_deletion_requested(es_client, uuid)
-
-    except requests.exceptions.ConnectionError:
-        error_message = 'Unable to connect to storage server. Please contact your administrator.'
-        messages.warning(request, error_message)
-    except slumber.exceptions.HttpClientError:
-         raise Http404
-
-    # It would be more elegant to redirect to the AIP storage overview page, but because
-    # ElasticSearch processes updates asynchronously this would often result in the user
-    # having to refresh the page to get an up-to-date result
-    return render(request, 'archival_storage/delete_request_results.html', locals())
-
-def reingest_aip(request, package_uuid):
-    form = forms.ReingestAIPForm(request.POST or None)
-    if form.is_valid():
-        # POST to SS for reingest
-        response = storage_service.request_reingest(
-            package_uuid, form.cleaned_data['reingest_type'])
-        error = response.get('error', True)
-        message = response.get('message', 'An unknown error occurred.')
-        if error:
-            messages.error(request, 'Error re-ingesting package: {}'.format(message))
-        else:
-            messages.success(request, message)
-        return redirect('archival_storage_index')
-    return render(request, 'archival_storage/reingest_request.html', locals())
+def reingest_aip(request, uuid):
+    raise Http404
 
 def aip_download(request, uuid):
     redirect_url = storage_service.download_file_url(uuid)
@@ -366,7 +326,7 @@ def aip_file_download(request, uuid):
     # get file's AIP's properties
     sipuuid      = helpers.get_file_sip_uuid(uuid)
     es_client    = elasticSearchFunctions.get_client()
-    aip          = elasticSearchFunctions.get_aip_data(es_client, sipuuid)
+    aip          = elasticSearchFunctions.get_aip_data(es_client, sipuuid, fields='uuid,name,filePath,size,origin,created')
     aip_filepath = aip['fields']['filePath'][0]
 
     # work out path components
@@ -594,7 +554,7 @@ def list_display(request):
 
     total_size = total_size_of_aips(es_client)
 
-    return render(request, 'archival_storage/archival_storage.html',
+    return render(request, 'archival_storage/list.html',
         {
             'total_size': total_size,
             'aip_indexed_file_count': aip_indexed_file_count,
@@ -618,3 +578,43 @@ def file_json(request, document_id_modified):
 
 def aip_json(request, document_id_modified):
     return document_json_response(document_id_modified, 'aip')
+
+
+def view_aip(request, uuid):
+    es_client = elasticSearchFunctions.get_client()
+    try:
+        es_aip_doc = elasticSearchFunctions.get_aip_data(es_client, uuid, fields='name,size,created,status,filePath')
+    except IndexError:
+        raise Http404
+
+    if request.POST:
+        form_upload = forms.UploadMetadataOnlyAtoMForm(request.POST, prefix='upload_dip')
+        form_reingest = forms.ReingestAIPForm(request.POST, prefix='reingest_aip')
+        form_delete = forms.DeleteAIPForm(request.POST, prefix='delete_aip')
+        if all([form_upload.is_valid(), form_reingest.is_valid(), form_delete.is_valid()]):
+            pass
+    else:
+        form_upload = forms.UploadMetadataOnlyAtoMForm(prefix='upload_dip')
+        form_reingest = forms.ReingestAIPForm(prefix='reingest_aip')
+        form_delete = forms.DeleteAIPForm(prefix='delete_aip')
+
+    context = {
+        'uuid': uuid,
+        'name': _get_es_field(es_aip_doc['fields'], 'name'),
+        'created': _get_es_field(es_aip_doc['fields'], 'created'),
+        'status': AIP_STATUS_DESCRIPTIONS[_get_es_field(es_aip_doc['fields'], 'status', 'UPLOADED')],
+        'size': '{0:.2f} MB'.format(_get_es_field(es_aip_doc['fields'], 'size', 0)),
+        'location_basename': os.path.basename(_get_es_field(es_aip_doc['fields'], 'filePath')),
+        'forms': {
+            'upload': form_upload,
+            'reingest': form_reingest,
+            'delete': form_delete,
+        },
+    }
+
+    #
+    # NOTES
+    #
+    # http://stackoverflow.com/questions/36805339/django-post-form-validation-to-an-another-page
+
+    return render(request, 'archival_storage/view.html', context)
