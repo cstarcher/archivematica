@@ -1,6 +1,4 @@
 *.py[co]
-src/dashboard/src/settings_local.py
-qubit-git
 *.pyo
 *~
 localDevSetup/ETCsudoersBackup
@@ -13,3 +11,6 @@ mysql_dev.complete
 .project
 .pydevproject
 .settings/
+
+/src/dashboard/src/settings_local.py
+/src/dashboard/src/static

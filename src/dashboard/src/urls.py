@@ -15,8 +15,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Archivematica.  If not, see <http://www.gnu.org/licenses/>.
 
+from os.path import join
+
 from django.conf.urls import url, include, patterns
+from django.conf.urls.static import static
 from django.conf import settings
+
 
 urlpatterns = patterns('',
     url(r'^mcp/', include('components.mcp.urls')),
@@ -38,3 +42,10 @@ urlpatterns = patterns('',
     url(r'^backlog/', include('components.backlog.urls')),
     url(r'', include('main.urls'))
 )
+
+
+if settings.DEBUG:
+    import debug_toolbar
+    urlpatterns += patterns('', url(r'^__debug__/', include(debug_toolbar.urls)),)
+    urlpatterns += static('/static/debug_toolbar/', document_root=join(settings.BASE_PATH, 'static', 'debug_toolbar'))
+    urlpatterns += static(settings.STATIC_URL, document_root=join(settings.BASE_PATH, 'media'))

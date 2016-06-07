@@ -15,7 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Archivematica.  If not, see <http://www.gnu.org/licenses/>.
 
+
 from .common import *
+
 
 DEBUG = True
 TEMPLATE_DEBUG = True
@@ -26,3 +28,12 @@ FIXTURE_DIRS = (
     'tests/fixtures/',
     '../archivematicaCommon/tests/fixtures/'
 )
+
+# Avoid /media/ to bypass Nginx and serve the static content dynamically
+STATIC_URL = '/static/'
+
+# Django debug toolbar
+DEBUG_TOOLBAR_PATCH_SETTINGS = False  # Less magic!
+INSTALLED_APPS += ('debug_toolbar',)
+MIDDLEWARE_CLASSES += ('debug_toolbar.middleware.DebugToolbarMiddleware',)
+INTERNAL_IPS = ('127.0.0.1', '192.168.168.1',)

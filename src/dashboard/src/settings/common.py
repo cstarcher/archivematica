@@ -269,19 +269,6 @@ LOGIN_EXEMPT_URLS  = [
   r'^api'
 ]
 
-# Django debug toolbar
-try:
-    import debug_toolbar
-except:
-    pass
-else:
-    MIDDLEWARE_CLASSES += ('debug_toolbar.middleware.DebugToolbarMiddleware',)
-    INSTALLED_APPS += ('debug_toolbar',)
-    INTERNAL_IPS = ('127.0.0.1', '192.168.82.1', '10.0.2.2')
-    DEBUG_TOOLBAR_CONFIG = {
-        'INTERCEPT_REDIRECTS': False,
-    }
-
 # Dashboard internal settings
 MCP_SERVER = ('127.0.0.1', 4730) # localhost:4730
 POLLING_INTERVAL = 5 # Seconds
